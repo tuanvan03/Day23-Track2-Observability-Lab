@@ -1,6 +1,6 @@
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
-pydantic==2.10.2
+pydantic==1.10.26
 prometheus-client==0.21.0
 opentelemetry-api==1.28.2
 opentelemetry-sdk==1.28.2
@@ -9,9 +9,9 @@ opentelemetry-instrumentation-fastapi==0.49b2
 opentelemetry-instrumentation-requests==0.49b2
 structlog==24.4.0
 locust==2.32.4
-evidently==0.4.46
+evidently==0.4.40
 pandas==2.2.3
-numpy==2.1.3
+numpy==2.0.2
 scipy==1.14.1
 requests==2.32.3
 pyarrow==18.1.0

@@ -9,6 +9,26 @@ receivers:
       http:
         endpoint: 0.0.0.0:4318
 
+  # Read Docker container stdout logs for Loki
+  filelog:
+    include:
+      - /var/lib/docker/containers/*/*-json.log
+    include_file_name: false
+    include_file_path: true
+    start_at: end
+    operators:
+      # Parse Docker JSON log line {log, stream, time}
+      - type: json_parser
+        timestamp:
+          parse_from: attributes.time
+          layout: '%Y-%m-%dT%H:%M:%S.%fZ'
+        id: docker-parser
+      # Extract the 'log' field (the actual app log message) as body
+      - type: move
+        from: attributes.log
+        to: body
+        id: extract-log
+
   # Self-metrics (Prometheus-scrapeable on :8888 — see prometheus.yml)
   prometheus:
     config:
@@ -46,10 +66,26 @@ processors:
         value: lab
         action: upsert
 
+  # Resource processor for logs only - set service name for filelog entries
+  resource/logs:
+    attributes:
+      - key: deployment.environment
+        value: lab
+        action: upsert
+      - key: service.name
+        value: inference-api
+        action: upsert
+
 exporters:
   # Traces → Jaeger via OTLP
   otlp/jaeger:
     endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Logs → Loki
+  loki:
+    endpoint: http://loki:3100/loki/api/v1/push
     tls:
       insecure: true
 
@@ -67,6 +103,11 @@ service:
       receivers: [otlp, prometheus]
       processors: [resource, batch]
       exporters: [debug]
+
+    logs:
+      receivers: [filelog]
+      processors: [resource/logs, batch]
+      exporters: [loki, debug]
 
   telemetry:
     logs:

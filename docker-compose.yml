@@ -34,6 +34,8 @@ services:
       - ./02-prometheus-grafana/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./02-prometheus-grafana/prometheus/rules:/etc/prometheus/rules:ro
       - prom-data:/prometheus
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
@@ -53,9 +55,11 @@ services:
     ports:
       - "127.0.0.1:9093:9093"
     volumes:
-      - ./02-prometheus-grafana/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./02-prometheus-grafana/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
     environment:
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-https://hooks.slack.com/services/REPLACE/ME}
+    entrypoint: []
+    command: sh -c "sed 's|__SLACK_WEBHOOK_URL__|$SLACK_WEBHOOK_URL|g' /etc/alertmanager/alertmanager.yml > /tmp/alertmanager.yml && exec /bin/alertmanager --config.file=/tmp/alertmanager.yml"
     networks: [obs]
 
   grafana:
@@ -102,15 +106,18 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.114.0
     container_name: day23-otel-collector
+    user: "0:0"
     ports:
       - "127.0.0.1:4317:4317"  # OTLP gRPC
       - "127.0.0.1:4318:4318"  # OTLP HTTP
       - "127.0.0.1:8888:8888"  # collector self-metrics
     volumes:
       - ./03-tracing-and-logs/otel-collector/otel-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
     command: ["--config=/etc/otelcol-contrib/config.yaml"]
     depends_on:
       - jaeger
+      - loki
     networks: [obs]
 
 volumes:
